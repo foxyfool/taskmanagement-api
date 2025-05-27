@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Task } from '../entities/task.entity';
+import { In, Repository } from 'typeorm';
+import { Task, TaskPriority, TaskStatus } from '../entities/task.entity';
 import { User } from '../entities/user.entity';
 import { Team } from '../entities/team.entity';
-import { CreateTaskDto } from './dto/create-task.dto';
+import {
+  AssignMultipleTasksDto,
+  CreateBulkTasksDto,
+  CreateTaskDto,
+} from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 
 @Injectable()
@@ -155,5 +163,78 @@ export class TasksService {
     task.assignee = assignee;
     task.updatedAt = new Date();
     return this.tasksRepository.save(task);
+  }
+  
+  async createBulk(createBulkTasksDto: CreateBulkTasksDto): Promise<Task[]> {
+    const tasks: Task[] = [];
+
+    for (const taskDto of createBulkTasksDto.tasks) {
+      const task = new Task();
+      task.title = taskDto.title;
+      task.description = taskDto.description;
+      task.dueDate = taskDto.dueDate ? new Date(taskDto.dueDate) : null;
+      task.status = taskDto.status;
+      task.priority = taskDto.priority;
+
+      if (taskDto.assigneeId) {
+        const assignee = await this.usersRepository.findOne({
+          where: { id: taskDto.assigneeId },
+          select: ['id', 'username', 'email', 'role'],
+        });
+        if (!assignee) {
+          throw new NotFoundException(
+            `Assignee with ID ${taskDto.assigneeId} not found`,
+          );
+        }
+        task.assignee = assignee;
+      }
+
+      if (taskDto.teamId) {
+        const team = await this.teamsRepository.findOne({
+          where: { id: taskDto.teamId },
+        });
+        if (!team) {
+          throw new NotFoundException(
+            `Team with ID ${taskDto.teamId} not found`,
+          );
+        }
+        task.team = team;
+      }
+
+      tasks.push(task);
+    }
+
+    return this.tasksRepository.save(tasks);
+  }
+
+  async assignMultipleTasksToUser(
+    assignMultipleTasksDto: AssignMultipleTasksDto,
+  ): Promise<Task[]> {
+    const { taskIds, assigneeId } = assignMultipleTasksDto;
+
+    const assignee = await this.usersRepository.findOne({
+      where: { id: assigneeId },
+      select: ['id', 'username', 'email', 'role'],
+    });
+
+    if (!assignee) {
+      throw new NotFoundException('Assignee not found');
+    }
+
+    const tasks = await this.tasksRepository.find({
+      where: { id: In(taskIds) },
+    });
+
+    if (tasks.length !== taskIds.length) {
+      throw new NotFoundException('Some tasks not found');
+    }
+
+    const updatedTasks = tasks.map((task) => {
+      task.assignee = assignee;
+      task.updatedAt = new Date();
+      return task;
+    });
+
+    return this.tasksRepository.save(updatedTasks);
   }
 }

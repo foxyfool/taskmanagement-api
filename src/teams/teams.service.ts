@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Team } from '../entities/team.entity';
 import { User } from '../entities/user.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -20,11 +20,53 @@ export class TeamsService {
     team.description = createTeamDto.description;
 
     if (createTeamDto.memberIds && createTeamDto.memberIds.length > 0) {
-      const members = await this.usersRepository.findByIds(
-        createTeamDto.memberIds,
-      );
+      const members = await this.usersRepository.find({
+        where: { id: In(createTeamDto.memberIds) },
+      });
+
+      if (members.length !== createTeamDto.memberIds.length) {
+        const foundIds = members.map((member) => member.id);
+        const missingIds = createTeamDto.memberIds.filter(
+          (id) => !foundIds.includes(id),
+        );
+        throw new NotFoundException(
+          `Users not found: ${missingIds.join(', ')}`,
+        );
+      }
+
       team.members = members;
     }
+
+    return this.teamsRepository.save(team);
+  }
+
+  async addMultipleMembers(teamId: string, userIds: string[]): Promise<Team> {
+    const team = await this.teamsRepository.findOne({
+      where: { id: teamId },
+      relations: ['members'],
+    });
+
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    const users = await this.usersRepository.find({
+      where: { id: In(userIds) },
+    });
+
+    if (users.length !== userIds.length) {
+      const foundIds = users.map((user) => user.id);
+      const missingIds = userIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(`Users not found: ${missingIds.join(', ')}`);
+    }
+
+    const currentMemberIds = team.members.map((member) => member.id);
+
+    const newMembers = users.filter(
+      (user) => !currentMemberIds.includes(user.id),
+    );
+
+    team.members.push(...newMembers);
 
     return this.teamsRepository.save(team);
   }
@@ -85,6 +127,25 @@ export class TeamsService {
     }
 
     team.members = team.members.filter((member) => member.id !== userId);
+    return this.teamsRepository.save(team);
+  }
+
+  async removeMultipleMembers(
+    teamId: string,
+    userIds: string[],
+  ): Promise<Team> {
+    const team = await this.teamsRepository.findOne({
+      where: { id: teamId },
+      relations: ['members'],
+    });
+
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    team.members = team.members.filter(
+      (member) => !userIds.includes(member.id),
+    );
     return this.teamsRepository.save(team);
   }
 

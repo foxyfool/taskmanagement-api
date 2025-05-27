@@ -10,7 +10,11 @@ import {
   Put,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
-import { CreateTaskDto } from './dto/create-task.dto';
+import {
+  AssignMultipleTasksDto,
+  CreateBulkTasksDto,
+  CreateTaskDto,
+} from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -55,5 +59,17 @@ export class TasksController {
     @Param('assigneeId') assigneeId: string,
   ) {
     return this.tasksService.assignToUser(taskId, assigneeId);
+  }
+
+  @Post('bulk')
+  createBulk(@Body() createBulkTasksDto: CreateBulkTasksDto) {
+    return this.tasksService.createBulk(createBulkTasksDto);
+  }
+
+  @Post('assign-multiple')
+  assignMultipleTasksToUser(
+    @Body() assignMultipleTasksDto: AssignMultipleTasksDto,
+  ) {
+    return this.tasksService.assignMultipleTasksToUser(assignMultipleTasksDto);
   }
 }

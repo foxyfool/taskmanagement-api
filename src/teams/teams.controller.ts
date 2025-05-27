@@ -9,7 +9,7 @@ import {
   Put,
 } from '@nestjs/common';
 import { TeamsService } from './teams.service';
-import { CreateTeamDto } from './dto/create-team.dto';
+import { AddMultipleMembersDto, CreateTeamDto } from './dto/create-team.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('teams')
@@ -40,6 +40,28 @@ export class TeamsController {
   @Delete(':id/members/:userId')
   removeMember(@Param('id') teamId: string, @Param('userId') userId: string) {
     return this.teamsService.removeMember(teamId, userId);
+  }
+
+  @Put(':id/members')
+  addMultipleMembers(
+    @Param('id') teamId: string,
+    @Body() addMultipleMembersDto: AddMultipleMembersDto,
+  ) {
+    return this.teamsService.addMultipleMembers(
+      teamId,
+      addMultipleMembersDto.userIds,
+    );
+  }
+
+  @Delete(':id/members')
+  removeMultipleMembers(
+    @Param('id') teamId: string,
+    @Body() addMultipleMembersDto: AddMultipleMembersDto,
+  ) {
+    return this.teamsService.removeMultipleMembers(
+      teamId,
+      addMultipleMembersDto.userIds,
+    );
   }
 
   @Delete(':id')

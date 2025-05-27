@@ -13,3 +13,9 @@ export class CreateTeamDto {
   @IsUUID('4', { each: true })
   memberIds?: string[];
 }
+
+export class AddMultipleMembersDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  userIds: string[];
+}
